@@ -24,12 +24,18 @@ import PlutusLedgerApi.V3 (
     ScriptContext (..),
     ScriptInfo (..),
     ScriptPurpose (..),
+    TxInfo (..),
+    Vote (..),
     fromBuiltinData,
  )
 import PlutusTx (
     CompiledCode,
     compile,
     makeIsDataIndexed,
+ )
+import PlutusTx.AssocMap (
+    all,
+    lookup,
  )
 import PlutusTx.Bool (
     Bool (..),
@@ -50,6 +56,25 @@ import PlutusTx.Prelude (
     (==),
  )
 import Shared (wrapFourArgs, wrapOneArg, wrapThreeArgs, wrapTwoArgs)
+
+{-# INLINEABLE alwaysVoteYesDrep #-}
+alwaysVoteYesDrep :: ScriptContext -> Bool
+alwaysVoteYesDrep ctx = case scriptContextScriptInfo ctx of
+    VotingScript voter -> case lookup voter (txInfoVotes txInfo) of
+        Just votes -> all (== VoteYes) votes
+        Nothing -> False
+      where
+        txInfo = scriptContextTxInfo ctx
+    _ -> False
+
+{-# INLINEABLE wrappedAlwaysVoteYesDrep #-}
+wrappedAlwaysVoteYesDrep :: BuiltinData -> BuiltinUnit
+wrappedAlwaysVoteYesDrep = wrapOneArg alwaysVoteYesDrep
+
+alwaysVoteYesDrepCode :: CompiledCode (BuiltinData -> BuiltinUnit)
+alwaysVoteYesDrepCode = $$(compile [||wrappedAlwaysVoteYesDrep||])
+
+-- Testing purposes
 
 {-# INLINEABLE alwaysTrueMint #-}
 alwaysTrueMint :: BuiltinData -> Bool

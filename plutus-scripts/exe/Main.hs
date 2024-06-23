@@ -36,6 +36,7 @@ import qualified PlutusTx.Builtins as PlutusTx
 
 import Scripts (
     alwaysTrueMintCode,
+    alwaysVoteYesDrepCode,
  )
 
 import Data.Aeson (Value, decode)
@@ -73,3 +74,4 @@ printDataToJSON = putStrLn . BS8.unpack . prettyPrintJSON . dataToJSON
 main :: IO ()
 main = do
     writeCodeToFile PlutusScriptV3 "./assets/V3/alwaysTrueMint.plutus" alwaysTrueMintCode
+    writeCodeToFile PlutusScriptV3 "./assets/V3/alwaysVoteYesDrep.plutus" alwaysVoteYesDrepCode
