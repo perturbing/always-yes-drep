@@ -74,8 +74,8 @@ printDataToJSON = putStrLn . BS8.unpack . prettyPrintJSON . dataToJSON
 initTxOutRef :: PlutusV3.TxOutRef
 initTxOutRef =
     PlutusV3.TxOutRef
-        ((PlutusV3.TxId . P.integerToByteString BigEndian 32) 0x7f6a7f48d447b1ae63ec2b8b1a623cca4d36838f8010e545c565c2d26ccb70f5)
-        1
+        ((PlutusV3.TxId . P.integerToByteString BigEndian 32) 0x8e37f9c2b4b62c2d30ff5456e2e44a3e4341bdc9142fa52b4ac576b6127f8b9d)
+        0
 
 main :: IO ()
 main = do

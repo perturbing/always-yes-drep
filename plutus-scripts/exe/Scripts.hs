@@ -72,7 +72,7 @@ alwaysVoteYesDrep ref ctx = case scriptContextScriptInfo ctx of
         Just votes -> all (== VoteYes) votes
         Nothing -> False
     -- To register the drep, it must spend a specified txoutref
-    CertifyingScript _ cert -> case findTxInByTxOutRef ref txInfo of
+    CertifyingScript _ _ -> case findTxInByTxOutRef ref txInfo of
         Just _ -> True
         Nothing -> False
     _ -> False
