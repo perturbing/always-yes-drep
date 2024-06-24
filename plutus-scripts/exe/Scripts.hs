@@ -3,7 +3,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# OPTIONS_GHC -fno-full-laziness #-}
@@ -15,8 +14,6 @@
 {-# OPTIONS_GHC -fno-unbox-small-strict-fields #-}
 {-# OPTIONS_GHC -fno-unbox-strict-fields #-}
 
-{-# HLINT ignore "Use null"                     #-}
-
 module Scripts where
 
 import PlutusLedgerApi.V3 (
@@ -24,7 +21,9 @@ import PlutusLedgerApi.V3 (
     ScriptContext (..),
     ScriptInfo (..),
     ScriptPurpose (..),
+    TxInInfo (..),
     TxInfo (..),
+    TxOutRef (..),
     Vote (..),
     fromBuiltinData,
  )
@@ -51,27 +50,40 @@ import PlutusTx.Builtins (
 import PlutusTx.Prelude (
     BuiltinUnit,
     Maybe (..),
+    find,
     ($),
     (.),
     (==),
  )
 import Shared (wrapFourArgs, wrapOneArg, wrapThreeArgs, wrapTwoArgs)
 
+{-# INLINEABLE findTxInByTxOutRef #-}
+findTxInByTxOutRef :: TxOutRef -> TxInfo -> Maybe TxInInfo
+findTxInByTxOutRef outRef TxInfo{txInfoInputs} =
+    find
+        (\TxInInfo{txInInfoOutRef} -> txInInfoOutRef == outRef)
+        txInfoInputs
+
 {-# INLINEABLE alwaysVoteYesDrep #-}
-alwaysVoteYesDrep :: ScriptContext -> Bool
-alwaysVoteYesDrep ctx = case scriptContextScriptInfo ctx of
+alwaysVoteYesDrep :: TxOutRef -> ScriptContext -> Bool
+alwaysVoteYesDrep ref ctx = case scriptContextScriptInfo ctx of
+    -- If the drep is delegated, only allow the credential to vote yes
     VotingScript voter -> case lookup voter (txInfoVotes txInfo) of
         Just votes -> all (== VoteYes) votes
         Nothing -> False
-      where
-        txInfo = scriptContextTxInfo ctx
+    -- To register the drep, it must spend a specified txoutref
+    CertifyingScript _ cert -> case findTxInByTxOutRef ref txInfo of
+        Just _ -> True
+        Nothing -> False
     _ -> False
+  where
+    txInfo = scriptContextTxInfo ctx
 
 {-# INLINEABLE wrappedAlwaysVoteYesDrep #-}
-wrappedAlwaysVoteYesDrep :: BuiltinData -> BuiltinUnit
-wrappedAlwaysVoteYesDrep = wrapOneArg alwaysVoteYesDrep
+wrappedAlwaysVoteYesDrep :: BuiltinData -> BuiltinData -> BuiltinUnit
+wrappedAlwaysVoteYesDrep = wrapTwoArgs alwaysVoteYesDrep
 
-alwaysVoteYesDrepCode :: CompiledCode (BuiltinData -> BuiltinUnit)
+alwaysVoteYesDrepCode :: CompiledCode (BuiltinData -> BuiltinData -> BuiltinUnit)
 alwaysVoteYesDrepCode = $$(compile [||wrappedAlwaysVoteYesDrep||])
 
 -- Testing purposes
