@@ -52,15 +52,25 @@ cardano-cli conway governance vote create \
     --drep-script-hash $(cat alwaysVoteYesDrep.hash) \
     --out-file myGovAction.vote
 ```
-and submit it to the chain by witnessing the drep script via
+and submit it to the chain by witnessing the drep script via the following `build-raw` command (there is a bug in the cli)
 ```bash
-cardano-cli conway transaction build --testnet-magic 5 \
- --tx-in $(cardano-cli query utxo --address $(cat payment.addr) --output-json --testnet-magic 5 | jq -r 'keys[0]') \
- --tx-in-collateral $(cardano-cli query utxo --address $(cat payment.addr) --output-json --testnet-magic 5 | jq -r 'keys[0]') \
+ADA_ONLY_UTXO=$(cardano-cli query utxo --address $(cat payment.addr) --output-json --testnet-magic 5 | jq -r 'to_entries | map(select(.value.value | keys | length == 1 and contains(["lovelace"]))) | .[0].key')
+ADA_ONLY_UTXO_LOVELACE_VALUE=$(cardano-cli query utxo --address $(cat payment.addr) --output-json --testnet-magic 5 | jq '.'\"$ADA_ONLY_UTXO\"'' | jq '.value.lovelace')
+FEE=5000000
+PAYMENT_RETURN_LOVELACE=$(($ADA_ONLY_UTXO_LOVELACE_VALUE - $FEE))
+cardano-cli query protocol-parameters --testnet-magic 5 --out-file pparams.json
+cardano-cli conway transaction build-raw \
+ --tx-in $ADA_ONLY_UTXO \
+ --tx-in-collateral $ADA_ONLY_UTXO \
  --vote-file myGovAction.vote \
  --vote-script-file alwaysVoteYesDrep.plutus \
  --vote-redeemer-value {} \
- --change-address $(cat payment.addr) \
+ --vote-execution-units "(4000000000,4000000)" \
+ --tx-out $(cat payment.addr)+$PAYMENT_RETURN_LOVELACE \
+ --fee $FEE \
+ --protocol-params-file pparams.json \
  --out-file tx
+ cardano-cli transaction sign --testnet-magic 5 --signing-key-file payment.skey --tx-body-file tx --out-file tx.signed
+ cardano-cli transaction submit --testnet-magic 5 --tx-file tx.signed
 ```
 And to convince you that the script can never vote no, try voting not with it :)
