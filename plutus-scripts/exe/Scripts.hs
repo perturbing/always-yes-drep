@@ -21,6 +21,7 @@ import PlutusLedgerApi.V3 (
     ScriptContext (..),
     ScriptInfo (..),
     ScriptPurpose (..),
+    TxCert (..),
     TxInInfo (..),
     TxInfo (..),
     TxOutRef (..),
@@ -65,25 +66,26 @@ findTxInByTxOutRef outRef TxInfo{txInfoInputs} =
         txInfoInputs
 
 {-# INLINEABLE alwaysVoteYesDrep #-}
-alwaysVoteYesDrep :: TxOutRef -> ScriptContext -> Bool
-alwaysVoteYesDrep ref ctx = case scriptContextScriptInfo ctx of
+alwaysVoteYesDrep :: ScriptContext -> Bool
+alwaysVoteYesDrep ctx = case scriptContextScriptInfo ctx of
     -- If the drep is delegated, only allow the credential to vote yes
     VotingScript voter -> case lookup voter (txInfoVotes txInfo) of
         Just votes -> all (== VoteYes) votes
         Nothing -> False
-    -- To register the drep, it must spend a specified txoutref
-    CertifyingScript _ _ -> case findTxInByTxOutRef ref txInfo of
-        Just _ -> True
-        Nothing -> False
+    -- If this script is certifying, only allow the credential to Register and Update the Drep
+    CertifyingScript _ cert -> case cert of
+        TxCertRegDRep _ _ -> True
+        TxCertUpdateDRep _ -> True
+        _ -> False
     _ -> False
   where
     txInfo = scriptContextTxInfo ctx
 
 {-# INLINEABLE wrappedAlwaysVoteYesDrep #-}
-wrappedAlwaysVoteYesDrep :: BuiltinData -> BuiltinData -> BuiltinUnit
-wrappedAlwaysVoteYesDrep = wrapTwoArgs alwaysVoteYesDrep
+wrappedAlwaysVoteYesDrep :: BuiltinData -> BuiltinUnit
+wrappedAlwaysVoteYesDrep = wrapOneArg alwaysVoteYesDrep
 
-alwaysVoteYesDrepCode :: CompiledCode (BuiltinData -> BuiltinData -> BuiltinUnit)
+alwaysVoteYesDrepCode :: CompiledCode (BuiltinData -> BuiltinUnit)
 alwaysVoteYesDrepCode = $$(compile [||wrappedAlwaysVoteYesDrep||])
 
 -- Testing purposes
